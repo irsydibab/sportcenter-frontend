@@ -404,7 +404,7 @@ export default function PublicBooking({
                   <img
                     alt="Voli"
                     className="w-full h-[180px] object-cover transform hover:scale-105 transition-transform duration-500 ease-out"
-                    src="/public/images/booking-voli.png"
+                    src="/images/booking-voli.png"
                   />
                   <span
                     className={`absolute top-3 left-3 text-[10px] font-bold px-3 py-1 rounded-full text-white shadow-xs ${isVoliActive ? "bg-emerald-500" : "bg-rose-500"}`}
