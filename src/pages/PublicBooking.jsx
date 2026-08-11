@@ -315,7 +315,7 @@ export default function PublicBooking({
                   <img
                     alt="Futsal"
                     className="w-full h-[180px] object-cover transform hover:scale-105 transition-transform duration-500 ease-out"
-                    src="/public/images/booking-futsal.png"
+                    src="/images/booking-futsal.png"
                   />
                   <span
                     className={`absolute top-3 left-3 text-[10px] font-bold px-3 py-1 rounded-full text-white shadow-xs ${isFutsalActive ? "bg-emerald-500" : "bg-rose-500"}`}
@@ -493,7 +493,7 @@ export default function PublicBooking({
                   <img
                     alt="Badminton"
                     className="w-full h-[180px] object-cover transform hover:scale-105 transition-transform duration-500 ease-out"
-                    src="/public/images/booking-badminton.png"
+                    src="/images/booking-badminton.png"
                   />
                   <span
                     className={`absolute top-3 left-3 text-[10px] font-bold px-3 py-1 rounded-full text-white shadow-xs ${isBadmintonActive ? "bg-emerald-500" : "bg-rose-500"}`}
@@ -512,7 +512,8 @@ export default function PublicBooking({
 
               <div className="border-t border-b border-slate-100 py-3 mb-5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2 font-heading">
-                  Fasilitas Lapangan <span className="text-red-600">(Dalam Perbaikan)</span>
+                  Fasilitas Lapangan{" "}
+                  <span className="text-red-600">(Dalam Perbaikan)</span>
                 </span>
                 <ul className="grid grid-cols-2 gap-2 text-xs text-slate-600 font-medium">
                   <li className="flex items-center gap-1.5">
@@ -799,7 +800,7 @@ export default function PublicBooking({
               <img
                 alt="Suasana Venue"
                 className="w-full h-full object-cover min-h-[280px] group-hover:scale-105 transition-transform duration-700 ease-out"
-                src="/public/images/hero-image3.png"
+                src="/images/hero-image3.png"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0d3a2d]/85 via-transparent to-transparent flex items-end p-6">
                 <div className="text-white">
