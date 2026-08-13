@@ -41,12 +41,13 @@ export default function ScheduleModal({ isOpen, onClose, initialCourtType, onOpe
         return new Date(dateString).toLocaleDateString('id-ID', options);
     };
 
-    const filledSchedules = schedules.filter(s => s.status === 'booked' || s.status === 'event');
+    // Sertakan 'pending' untuk menampilkan slot yang sedang dalam proses persetujuan
+    const filledSchedules = schedules.filter(s => s.status === 'pending' || s.status === 'booked' || s.status === 'event');
 
     const handleDirectBooking = () => {
-        onClose(); // Tutup modal jadwal
+        onClose();
         if (onOpenBooking) {
-            onOpenBooking(courtType); // Buka modal pemesanan dengan lapangan yang sedang dipilih
+            onOpenBooking(courtType);
         }
     };
 
@@ -155,7 +156,7 @@ export default function ScheduleModal({ isOpen, onClose, initialCourtType, onOpe
                                     const endMinutes = h * 60 + m + Math.round(durationHours * 60);
                                     const endH = String(Math.floor(endMinutes / 60) % 24).padStart(2, '0');
                                     const endM = String(endMinutes % 60).padStart(2, '0');
-                                    const endTimeStr = `${endH}:${endM}`;
+                                    const endTimeStr = s.end_time ? s.end_time.substring(0, 5) : `${endH}:${endM}`;
 
                                     return (
                                         <div 
@@ -179,9 +180,11 @@ export default function ScheduleModal({ isOpen, onClose, initialCourtType, onOpe
                                             <span className={`w-24 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider text-center shrink-0 block ${
                                                 s.status === 'booked' 
                                                     ? 'bg-rose-500 text-white shadow-xs' 
+                                                    : s.status === 'pending'
+                                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
                                                     : 'bg-amber-400 text-slate-900 shadow-xs'
                                             }`}>
-                                                {s.status}
+                                                {s.status === 'pending' ? 'MENUNGGU' : s.status}
                                             </span>
                                         </div>
                                     );
@@ -203,7 +206,7 @@ export default function ScheduleModal({ isOpen, onClose, initialCourtType, onOpe
                     </div>
                 </div>
 
-                {/* Footer dengan Tombol Pesan Sekarang */}
+                {/* Footer */}
                 <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
                     <span className="text-[11px] sm:text-xs text-slate-500 font-bold truncate">Mau booking jam kosong?</span>
                     <button

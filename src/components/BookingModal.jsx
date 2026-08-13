@@ -32,6 +32,9 @@ export default function BookingModal({
   const [bookedSchedules, setBookedSchedules] = useState([]);
   const [settings, setSettings] = useState({});
 
+  // Loading State saat Simpan API
+  const [loading, setLoading] = useState(false);
+
   // Validation Error State
   const [timeConflictError, setTimeConflictError] = useState("");
 
@@ -79,14 +82,12 @@ export default function BookingModal({
     return true;
   };
 
-  // Helper membaca tarif terendah (pagi/siang) per lapangan
   const getMinCourtPrice = (type) => {
     const priceKey = `${type}_price_day`;
     const price = settings[priceKey] || settings.price_day || 50000;
     return Math.round(price / 1000);
   };
 
-  // Helper menghitung tarif per jam berdasarkan waktu (Siang / Malam) & Lapangan
   const getSingleHourPrice = (timeStr, currentCourt) => {
     if (!timeStr) return 50000;
     const hour = parseInt(timeStr.split(":")[0]);
@@ -114,7 +115,7 @@ export default function BookingModal({
     return Math.round(hourlyRate * duration);
   };
 
-  // CEK BENTROKAN WAKTU & JAM WARGA (15:00 - 18:00)
+  // CEK BENTROKAN WAKTU & JAM WARGA
   const checkTimeConflict = () => {
     if (!startTime) return false;
 
@@ -122,9 +123,9 @@ export default function BookingModal({
     const userStartMinutes = startHour * 60 + startMin;
     const userEndMinutes = userStartMinutes + duration * 60;
 
-    // 1. Cek jika waktu berada di dalam atau bersinggungan dengan Jam Warga (15:00 - 18:00 -> 900 - 1080 menit)
-    const wargaStartMinutes = 15 * 60; // 900 menit
-    const wargaEndMinutes = 18 * 60;   // 1080 menit
+    // Jam Warga (15:00 - 18:00)
+    const wargaStartMinutes = 15 * 60;
+    const wargaEndMinutes = 18 * 60;
 
     if (
       userStartMinutes < wargaEndMinutes &&
@@ -133,9 +134,9 @@ export default function BookingModal({
       return "Jam 15:00 - 18:00 WIB tidak dapat dipesan (digunakan khusus untuk kegiatan warga desa).";
     }
 
-    // 2. Cek bentrokan dengan Jadwal Booking Lain
+    // Cek Bentrok dengan Jadwal Pending, Booked, dan Event
     const filledSchedules = bookedSchedules.filter(
-      (s) => s.status === "booked" || s.status === "event",
+      (s) => s.status === "pending" || s.status === "booked" || s.status === "event",
     );
 
     for (let s of filledSchedules) {
@@ -148,7 +149,7 @@ export default function BookingModal({
         userStartMinutes < bookedEndMinutes &&
         userEndMinutes > bookedStartMinutes
       ) {
-        return `Jam ${startTime} WIB bentrok dengan jadwal yang sudah di booking`;
+        return `Jam ${startTime} WIB bentrok dengan jadwal yang sudah dipesan/menunggu konfirmasi`;
       }
     }
     return "";
@@ -192,16 +193,32 @@ export default function BookingModal({
     setStep("summary");
   };
 
-  const handleSendToWhatsApp = () => {
-    const adminPhone =
-      settings.admin_whatsapp || adminWhatsapp || "6281234567890";
+  // INTEGRASI API PUBLIK + WHATSAPP
+  const handleSendToWhatsApp = async () => {
+    setLoading(true);
     const totalPrice = getTotalPrice();
-    const formattedPaymentMethod =
-      paymentMethod === "ewallet"
-        ? "QRIS / E-Wallet Instant"
-        : "Cash / Bayar di Tempat";
 
-    const message = `*KONFIRMASI PEMESANAN LAPANGAN*
+    const payload = {
+      court_type: courtType,
+      date: date,
+      start_time: startTime,
+      duration: duration,
+      renter_name: name,
+      price: totalPrice,
+    };
+
+    try {
+      // 1. Simpan ke Backend Laravel (Status 'pending')
+      const res = await api.post("/schedules/booking", payload);
+
+      if (res.data?.success || res.status === 200) {
+        const adminPhone = settings.admin_whatsapp || adminWhatsapp || "6288200994714";
+        const formattedPaymentMethod =
+          paymentMethod === "ewallet"
+            ? "QRIS / E-Wallet Instant"
+            : "Cash / Bayar di Tempat";
+
+        const message = `*KONFIRMASI PEMESANAN LAPANGAN*
 *Trutup Sport Center*
 
 Halo Admin, saya ingin mengkonfirmasi pemesanan lapangan dengan rincian berikut:
@@ -222,11 +239,21 @@ Halo Admin, saya ingin mengkonfirmasi pemesanan lapangan dengan rincian berikut:
 
 Mohon instruksi selanjutnya. Terima kasih!`;
 
-    window.open(
-      `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`,
-      "_blank",
-    );
-    onClose();
+        // 2. Buka WhatsApp Admin
+        window.open(
+          `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`,
+          "_blank",
+        );
+        onClose();
+      }
+    } catch (err) {
+      alert(
+        err.response?.data?.message ||
+          "Gagal membuat pesanan. Silakan coba lagi.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatReadableDate = (dateString) => {
@@ -255,8 +282,7 @@ Mohon instruksi selanjutnya. Terima kasih!`;
                   Pesan Lapangan Olahraga
                 </h3>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  {step === "slots" &&
-                    "Pilih jam mulai fleksibel & durasi sewa."}
+                  {step === "slots" && "Pilih jam mulai fleksibel & durasi sewa."}
                   {step === "form" && "Lengkapi data Anda untuk konfirmasi."}
                   {step === "summary" && "Tinjau pesanan & metode pembayaran."}
                 </p>
@@ -283,25 +309,13 @@ Mohon instruksi selanjutnya. Terima kasih!`;
               />
             </div>
             <div className="flex justify-between text-[10px] font-bold text-slate-400 px-0.5">
-              <span
-                className={
-                  step === "slots" ? "text-[#0d3a2d] font-extrabold" : ""
-                }
-              >
+              <span className={step === "slots" ? "text-[#0d3a2d] font-extrabold" : ""}>
                 Step 1: Jadwal
               </span>
-              <span
-                className={
-                  step === "form" ? "text-[#0d3a2d] font-extrabold" : ""
-                }
-              >
+              <span className={step === "form" ? "text-[#0d3a2d] font-extrabold" : ""}>
                 Step 2: Detail
               </span>
-              <span
-                className={
-                  step === "summary" ? "text-[#0d3a2d] font-extrabold" : ""
-                }
-              >
+              <span className={step === "summary" ? "text-[#0d3a2d] font-extrabold" : ""}>
                 Step 3: Bayar
               </span>
             </div>
@@ -343,14 +357,10 @@ Mohon instruksi selanjutnya. Terima kasih!`;
                               : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 cursor-pointer"
                         }`}
                       >
-                        <span
-                          className={`font-bold text-xs capitalize font-heading ${isSelected && isAvailable ? "text-white" : "text-slate-900"}`}
-                        >
+                        <span className={`font-bold text-xs capitalize font-heading ${isSelected && isAvailable ? "text-white" : "text-slate-900"}`}>
                           {item.label}
                         </span>
-                        <span
-                          className={`text-[9px] font-medium ${!isAvailable ? "text-rose-500 font-bold no-underline" : isSelected ? "text-emerald-200" : "text-slate-400"}`}
-                        >
+                        <span className={`text-[9px] font-medium ${!isAvailable ? "text-rose-500 font-bold no-underline" : isSelected ? "text-emerald-200" : "text-slate-400"}`}>
                           {isAvailable ? `Mulai Rp ${minPrice}rb` : "TUTUP"}
                         </span>
                       </button>
@@ -408,7 +418,6 @@ Mohon instruksi selanjutnya. Terima kasih!`;
                 </div>
               </div>
 
-              {/* PERINGATAN BENTROKAN JAM */}
               {timeConflictError && (
                 <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl flex items-start gap-2.5 text-rose-800 text-xs font-bold">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -675,15 +684,14 @@ Mohon instruksi selanjutnya. Terima kasih!`;
                   Estimasi Total ({duration} Jam)
                 </span>
                 <span className="text-xs font-black text-[#0d3a2d] font-heading">
-                  Rp {getTotalPrice().toLocaleString("id-ID")}{" "}
-                  <span className="text-[9px] font-bold text-slate-400">
-                  </span>
+                  Rp {getTotalPrice().toLocaleString("id-ID")}
                 </span>
               </div>
             </div>
           ) : (
             <button
               type="button"
+              disabled={loading}
               onClick={() => {
                 if (step === "form") setStep("slots");
                 if (step === "summary") setStep("form");
@@ -717,10 +725,17 @@ Mohon instruksi selanjutnya. Terima kasih!`;
           {step === "summary" && (
             <button
               type="button"
+              disabled={loading}
               onClick={handleSendToWhatsApp}
               className="px-5 py-2.5 rounded-xl font-bold text-[11px] tracking-wide uppercase bg-[#0d3a2d] text-white hover:bg-[#165643] transition cursor-pointer shadow-md flex items-center gap-1.5"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Konfirmasi WhatsApp
+              {loading ? (
+                "Memproses..."
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Konfirmasi WhatsApp
+                </>
+              )}
             </button>
           )}
         </div>

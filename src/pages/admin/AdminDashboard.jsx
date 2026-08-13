@@ -31,6 +31,7 @@ import {
   Moon,
   Banknote,
   LogOut as LogoutIcon,
+  Check,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -43,7 +44,7 @@ export default function AdminDashboard() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Modal State untuk Konfirmasi Hapus Jadwal
+  // Modal State untuk Konfirmasi Hapus / Tolak Jadwal
   const [deleteModal, setDeleteModal] = useState({
     show: false,
     id: null,
@@ -53,43 +54,29 @@ export default function AdminDashboard() {
   const [filterDate, setFilterDate] = useState("");
   const [filterCourt, setFilterCourt] = useState("all");
 
-  // Form State untuk Tambah Manual
+  // Form State untuk Tambah Manual (Kunci status ke "event")
   const [newSchedule, setNewSchedule] = useState({
     date: new Date().toISOString().split("T")[0],
     court_type: "futsal",
     start_time: "08:00",
     duration: 1,
     renter_name: "",
-    status: "booked",
-    price: 50000,
+    status: "event",
+    price: 0,
   });
 
-  // Data States Tarif & Ketersediaan Lapangan Spesifik
   const [settings, setSettings] = useState({
     admin_whatsapp: "",
     time_night_start: 18,
     courts: {
-      futsal: {
-        active: true,
-        price_day: 80000,
-        price_night: 120000,
-      },
-      volleyball: {
-        active: true,
-        price_day: 50000,
-        price_night: 80000,
-      },
-      badminton: {
-        active: false,
-        price_day: 40000,
-        price_night: 60000,
-      },
+      futsal: { active: true, price_day: 80000, price_night: 120000 },
+      volleyball: { active: true, price_day: 50000, price_night: 80000 },
+      badminton: { active: false, price_day: 40000, price_night: 60000 },
     },
   });
 
   const [schedules, setSchedules] = useState([]);
 
-  // Profile & Password States
   const [adminProfile, setAdminProfile] = useState({
     name: "Admin Trutup Sport",
     whatsapp: "6288200994714",
@@ -172,17 +159,40 @@ export default function AdminDashboard() {
     });
   };
 
+  // Menyetujui Booking Pending menjadi Booked
+  const handleApproveSchedule = async (id) => {
+    try {
+      await api.put(`/admin/schedules/${id}`, { status: "booked" });
+      setSchedules(
+        schedules.map((s) => (s.id === id ? { ...s, status: "booked" } : s)),
+      );
+      setMessage({
+        type: "success",
+        text: "Pemesanan berhasil disetujui!",
+      });
+    } catch (err) {
+      setMessage({ type: "error", text: "Gagal menyetujui pemesanan." });
+    }
+  };
+
+  // Input Jadwal Manual (Hanya untuk Event)
   const handleAddSchedule = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: "", text: "" });
+
+    const payload = {
+      ...newSchedule,
+      status: "event", // Kunci status ke event
+    };
+
     try {
-      const res = await api.post("/admin/schedules", newSchedule);
+      const res = await api.post("/admin/schedules", payload);
       setSchedules([res.data?.data || res.data, ...schedules]);
       setShowAddModal(false);
       setMessage({
         type: "success",
-        text: "Jadwal baru berhasil ditambahkan!",
+        text: "Jadwal event baru berhasil ditambahkan!",
       });
       setNewSchedule({
         date: new Date().toISOString().split("T")[0],
@@ -190,47 +200,30 @@ export default function AdminDashboard() {
         start_time: "08:00",
         duration: 1,
         renter_name: "",
-        status: "booked",
-        price: settings.courts.futsal.price_day || 50000,
+        status: "event",
+        price: 0,
       });
     } catch (err) {
       setMessage({
         type: "error",
-        text: err.response?.data?.message || "Gagal menambahkan jadwal.",
+        text: err.response?.data?.message || "Gagal menambahkan jadwal event.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (id, newStatus) => {
-    try {
-      await api.put(`/admin/schedules/${id}`, { status: newStatus });
-      setSchedules(
-        schedules.map((s) => (s.id === id ? { ...s, status: newStatus } : s)),
-      );
-      setMessage({
-        type: "success",
-        text: "Status label berhasil diperbarui!",
-      });
-    } catch (err) {
-      setMessage({ type: "error", text: "Gagal mengubah status label." });
-    }
-  };
-
-  // Membuka Modal Konfirmasi Hapus
   const handleOpenDeleteModal = (id) => {
     setDeleteModal({ show: true, id });
   };
 
-  // Eksekusi Hapus dari Modal Custom Pop-Up
   const handleConfirmDeleteSchedule = async () => {
     if (!deleteModal.id) return;
     setLoading(true);
     try {
       await api.delete(`/admin/schedules/${deleteModal.id}`);
       setSchedules(schedules.filter((s) => s.id !== deleteModal.id));
-      setMessage({ type: "success", text: "Jadwal berhasil dihapus!" });
+      setMessage({ type: "success", text: "Jadwal berhasil dihapus/ditolak!" });
     } catch (err) {
       setMessage({ type: "error", text: "Gagal menghapus jadwal." });
     } finally {
@@ -246,17 +239,13 @@ export default function AdminDashboard() {
 
     const payload = {
       time_night_start: settings.time_night_start,
-
       court_active_futsal: settings.courts.futsal.active,
       court_active_volleyball: settings.courts.volleyball.active,
       court_active_badminton: settings.courts.badminton.active,
-
       futsal_price_day: settings.courts.futsal.price_day,
       futsal_price_night: settings.courts.futsal.price_night,
-
       volleyball_price_day: settings.courts.volleyball.price_day,
       volleyball_price_night: settings.courts.volleyball.price_night,
-
       badminton_price_day: settings.courts.badminton.price_day,
       badminton_price_night: settings.courts.badminton.price_night,
     };
@@ -265,7 +254,7 @@ export default function AdminDashboard() {
       await api.put("/admin/settings/pricing", payload);
       setMessage({
         type: "success",
-        text: "Pengaturan tarif dan ketersediaan semua lapangan berhasil disimpan!",
+        text: "Pengaturan tarif dan ketersediaan lapangan berhasil disimpan!",
       });
     } catch (err) {
       setMessage({
@@ -340,6 +329,8 @@ export default function AdminDashboard() {
     const matchDate = filterDate ? s.date === filterDate : s.date >= todayStr;
     return matchCourt && matchDate;
   });
+
+  const pendingCount = schedules.filter((s) => s.status === "pending").length;
 
   return (
     <div className="flex h-screen bg-[#f8fafb] font-sans antialiased overflow-hidden">
@@ -416,14 +407,21 @@ export default function AdminDashboard() {
                     setMessage({ type: "", text: "" });
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3.5 lg:px-4 py-2.5 lg:py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                     active
                       ? "bg-[#0a8754] text-white shadow-md shadow-emerald-900/10"
                       : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
                   }`}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{tab.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{tab.label}</span>
+                  </div>
+                  {tab.id === "schedules" && pendingCount > 0 && (
+                    <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -473,6 +471,32 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* BANNER NOTIFIKASI JIKA ADA PESANAN PENDING */}
+          {pendingCount > 0 && (
+            <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-extrabold text-sm shadow-xs">
+                  {pendingCount}
+                </div>
+                <div>
+                  <h4 className="text-xs font-extrabold text-amber-900">
+                    Menunggu Persetujuan Pembayaran
+                  </h4>
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    Ada pemesanan baru dari pengunjung via WhatsApp yang
+                    memerlukan konfirmasi Anda.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab("schedules")}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0"
+              >
+                Tinjau Jadwal
+              </button>
+            </div>
+          )}
+
           {/* TAB: DASHBOARD */}
           {activeTab === "dashboard" && (
             <div className="pb-10">
@@ -494,7 +518,6 @@ export default function AdminDashboard() {
               {/* STAT CARDS */}
               <div className="px-4 sm:px-6 lg:px-8 -mt-14 sm:-mt-16">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
-                  
                   {/* CARD 1: BOOKING HARI INI */}
                   <div className="bg-white p-4 lg:p-5 rounded-2xl shadow-xs border border-slate-200/80 flex flex-col justify-between hover:shadow-md transition">
                     <div className="flex justify-between items-start mb-3">
@@ -543,7 +566,8 @@ export default function AdminDashboard() {
                           </span>
                           <h3 className="text-xl lg:text-2xl font-black text-slate-800 leading-tight mt-0.5">
                             {
-                              schedules.filter((s) => s.status === "booked").length
+                              schedules.filter((s) => s.status === "booked")
+                                .length
                             }
                           </h3>
                         </div>
@@ -596,7 +620,6 @@ export default function AdminDashboard() {
                       <span className="text-slate-400 font-medium">Total</span>
                     </div>
                   </div>
-
                 </div>
               </div>
 
@@ -635,9 +658,8 @@ export default function AdminDashboard() {
                                 <span className="capitalize font-semibold">
                                   {s.court_type}
                                 </span>{" "}
-                                untuk {s.date},{" "}
-                                {s.start_time?.substring(0, 5)} -{" "}
-                                {s.end_time?.substring(0, 5)} WIB
+                                untuk {s.date}, {s.start_time?.substring(0, 5)}{" "}
+                                - {s.end_time?.substring(0, 5)} WIB
                               </p>
                             </div>
                           </div>
@@ -645,10 +667,16 @@ export default function AdminDashboard() {
                             className={`text-[10px] font-extrabold px-3 py-1 rounded-full shrink-0 uppercase tracking-wider w-fit ${
                               s.status === "booked"
                                 ? "bg-rose-100 text-rose-700"
-                                : "bg-amber-100 text-amber-800"
+                                : s.status === "pending"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-amber-100 text-amber-800"
                             }`}
                           >
-                            {s.status === "booked" ? "BOOKED" : "EVENT"}
+                            {s.status === "pending"
+                              ? "PENDING"
+                              : s.status === "booked"
+                                ? "BOOKED"
+                                : "EVENT"}
                           </span>
                         </div>
                       ))}
@@ -722,14 +750,15 @@ export default function AdminDashboard() {
                     Manajemen Jadwal
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Kelola status slot jam operasional dan input booking manual.
+                    Kelola persetujuan booking pengunjung dan input jadwal event
+                    internal.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowAddModal(true)}
                   className="px-4 py-2.5 bg-[#0a8754] text-white font-bold text-xs rounded-xl shadow-xs hover:bg-[#086c43] transition cursor-pointer flex items-center justify-center gap-2 shrink-0 w-full sm:w-auto"
                 >
-                  <Plus className="w-4 h-4" /> Input Jadwal Manual
+                  <Plus className="w-4 h-4" /> Input Jadwal Event
                 </button>
               </div>
 
@@ -786,14 +815,16 @@ export default function AdminDashboard() {
                         <th className="py-4 px-4">Jam Rentang</th>
                         <th className="py-4 px-4">Nama Pemesan</th>
                         <th className="py-4 px-4">Status Label</th>
-                        <th className="py-4 px-6 text-right">Aksi</th>
+                        <th className="py-4 px-6 text-right">
+                          Aksi Konfirmasi
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {filteredSchedules.map((s) => (
                         <tr
                           key={s.id}
-                          className="hover:bg-slate-50/60 transition"
+                          className={`transition ${s.status === "pending" ? "bg-amber-50/40" : "hover:bg-slate-50/60"}`}
                         >
                           <td className="py-4 px-6 font-bold text-slate-800">
                             {s.date}
@@ -810,52 +841,48 @@ export default function AdminDashboard() {
                           </td>
 
                           <td className="py-4 px-4">
-                            <div
-                              onClick={() =>
-                                handleUpdateStatus(
-                                  s.id,
-                                  s.status === "booked" ? "event" : "booked",
-                                )
-                              }
-                              className="relative inline-flex items-center bg-slate-100 p-1 rounded-full border border-slate-200/80 cursor-pointer select-none"
-                              title="Klik untuk mengubah status antara BOOKED dan EVENT"
-                            >
-                              <div
-                                className={`absolute top-1 bottom-1 w-[68px] rounded-full transition-all duration-200 ease-in-out shadow-xs ${
-                                  s.status === "booked"
-                                    ? "left-1 bg-rose-500"
-                                    : "left-[73px] bg-amber-400"
-                                }`}
-                              />
-                              <div
-                                className={`relative z-10 w-[68px] py-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${
-                                  s.status === "booked"
-                                    ? "text-white"
-                                    : "text-slate-400 hover:text-slate-600"
-                                }`}
-                              >
+                            {s.status === "pending" ? (
+                              <span className="bg-amber-100 text-amber-800 border border-amber-300 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider animate-pulse">
+                                Menunggu WA
+                              </span>
+                            ) : s.status === "booked" ? (
+                              <span className="bg-rose-500 text-white font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider">
                                 BOOKED
-                              </div>
-                              <div
-                                className={`relative z-10 w-[68px] py-1 text-center text-[10px] font-black uppercase tracking-wider transition-colors duration-200 ${
-                                  s.status === "event"
-                                    ? "text-slate-900"
-                                    : "text-slate-400 hover:text-slate-600"
-                                }`}
-                              >
+                              </span>
+                            ) : (
+                              <span className="bg-amber-400 text-slate-900 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider">
                                 EVENT
-                              </div>
-                            </div>
+                              </span>
+                            )}
                           </td>
 
                           <td className="py-4 px-6 text-right">
-                            <button
-                              onClick={() => handleOpenDeleteModal(s.id)}
-                              className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                              title="Hapus / Batalkan Slot"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {s.status === "pending" ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => handleApproveSchedule(s.id)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl transition cursor-pointer flex items-center gap-1 shadow-xs"
+                                  title="Setujui Pemesanan (Sudah Bayar di WA)"
+                                >
+                                  <Check className="w-3.5 h-3.5" /> Terima
+                                </button>
+                                <button
+                                  onClick={() => handleOpenDeleteModal(s.id)}
+                                  className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[11px] rounded-xl transition cursor-pointer flex items-center gap-1"
+                                  title="Tolak & Hapus Pemesanan"
+                                >
+                                  <X className="w-3.5 h-3.5" /> Tolak
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenDeleteModal(s.id)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                title="Hapus / Batalkan Slot"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1320,10 +1347,11 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h3 className="font-extrabold text-slate-900 text-base">
-                Hapus Jadwal Ini?
+                Hapus / Tolak Jadwal Ini?
               </h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Slot jadwal ini akan dihapus permanen dari sistem dan ketersediaan lapangan akan terbuka kembali.
+                Slot jadwal ini akan dihapus permanen dari sistem dan
+                ketersediaan lapangan akan terbuka kembali.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-2">
@@ -1379,14 +1407,20 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MODAL INPUT JADWAL MANUAL */}
+      {/* MODAL INPUT JADWAL MANUAL (KHUSUS EVENT INTERNAL) */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4 my-auto">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-sm text-slate-800">
-                Tambah Jadwal Booking / Event
-              </h3>
+              <div>
+                <h3 className="font-bold text-sm text-slate-800">
+                  Tambah Jadwal Event Internal / Desa
+                </h3>
+                <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  Blokir slot jam khusus untuk kegiatan desa/karang taruna
+                  (gratis).
+                </p>
+              </div>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -1449,7 +1483,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <label className="block text-slate-500 mb-1">
-                    Durasi Sewa
+                    Durasi Acara
                   </label>
                   <select
                     value={newSchedule.duration}
@@ -1472,28 +1506,12 @@ export default function AdminDashboard() {
 
               <div>
                 <label className="block text-slate-500 mb-1">
-                  Status Label
-                </label>
-                <select
-                  value={newSchedule.status}
-                  onChange={(e) =>
-                    setNewSchedule({ ...newSchedule, status: e.target.value })
-                  }
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 font-bold"
-                >
-                  <option value="booked">Booked (Merah)</option>
-                  <option value="event">Event (Kuning)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-500 mb-1">
-                  Nama Pemesan / Penanggung Jawab
+                  Nama Kegiatan / Penanggung Jawab Event
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Budi (WA)"
+                  placeholder="Contoh: Turnamen PHBN / Karang Taruna"
                   value={newSchedule.renter_name}
                   onChange={(e) =>
                     setNewSchedule({
@@ -1504,12 +1522,19 @@ export default function AdminDashboard() {
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50"
                 />
               </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-bold">
+                * Jadwal ini akan otomatis ditandai sebagai{" "}
+                <span className="underline">EVENT (Kuning)</span> dan tidak
+                dihitung ke dalam estimasi pendapatan omzet.
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full py-3 bg-[#0a8754] text-white font-bold rounded-xl mt-2 cursor-pointer hover:bg-[#086c43] transition"
               >
-                {loading ? "Menyimpan..." : "Simpan Jadwal"}
+                {loading ? "Menyimpan..." : "Simpan Jadwal Event"}
               </button>
             </form>
           </div>
