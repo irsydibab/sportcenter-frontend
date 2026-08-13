@@ -32,6 +32,7 @@ import {
   Banknote,
   LogOut as LogoutIcon,
   Check,
+  Bell,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -42,6 +43,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Modal State untuk Konfirmasi Hapus / Tolak Jadwal
@@ -93,17 +95,17 @@ export default function AdminDashboard() {
       navigate("/login");
       return;
     }
-    loadDashboardData();
+    loadDashboardData(true);
 
     // Auto Polling Data Setiap 10 Detik
     const interval = setInterval(() => {
-      loadDashboardData();
+      loadDashboardData(false);
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const loadDashboardData = () => {
+  const loadDashboardData = (isInitialLoad = false) => {
     api
       .get("/settings")
       .then((res) => {
@@ -154,7 +156,16 @@ export default function AdminDashboard() {
     api
       .get("/admin/schedules")
       .then((res) => {
-        setSchedules(res.data?.data || res.data || []);
+        const scheduleData = res.data?.data || res.data || [];
+        setSchedules(scheduleData);
+
+        // Tampilkan modal jika ada pending booking saat pertama kali masuk
+        if (
+          isInitialLoad &&
+          scheduleData.some((s) => s.status === "pending")
+        ) {
+          setShowPendingModal(true);
+        }
       })
       .catch((err) => console.error("Gagal memuat schedules:", err));
   };
@@ -166,7 +177,6 @@ export default function AdminDashboard() {
     });
   };
 
-  // Menyetujui Booking Pending menjadi Booked
   const handleApproveSchedule = async (id) => {
     try {
       await api.put(`/admin/schedules/${id}`, { status: "booked" });
@@ -182,7 +192,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Input Jadwal Manual (Hanya untuk Event)
   const handleAddSchedule = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -190,7 +199,7 @@ export default function AdminDashboard() {
 
     const payload = {
       ...newSchedule,
-      status: "event", // Kunci status ke event
+      status: "event",
     };
 
     try {
@@ -459,7 +468,11 @@ export default function AdminDashboard() {
         <main className="flex-1 overflow-y-auto">
           {message.text && (
             <div
-              className={`mx-4 sm:mx-6 lg:mx-8 mt-4 p-3.5 lg:p-4 rounded-2xl text-xs font-bold flex items-center justify-between shadow-sm z-50 relative ${message.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}
+              className={`mx-4 sm:mx-6 lg:mx-8 mt-4 p-3.5 lg:p-4 rounded-2xl text-xs font-bold flex items-center justify-between shadow-sm z-50 relative ${
+                message.type === "success"
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-rose-50 text-rose-800 border border-rose-200"
+              }`}
             >
               <span className="flex items-center gap-2 pr-2">
                 {message.type === "success" ? (
@@ -475,34 +488,6 @@ export default function AdminDashboard() {
               >
                 ✕
               </button>
-            </div>
-          )}
-
-          {/* BANNER NOTIFIKASI PENDING (RESPONSIF MOBILE) */}
-          {pendingCount > 0 && (
-            <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 p-4 bg-amber-50 border border-amber-200/80 rounded-2xl shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-xs">
-                    {pendingCount}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-extrabold text-amber-900 leading-snug">
-                      Menunggu Persetujuan Pembayaran
-                    </h4>
-                    <p className="text-[11px] text-amber-700/90 font-medium mt-0.5 leading-tight">
-                      Ada pemesanan baru dari pengunjung via WhatsApp yang
-                      memerlukan konfirmasi Anda.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setActiveTab("schedules")}
-                  className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0 text-center shadow-xs"
-                >
-                  Tinjau Jadwal
-                </button>
-              </div>
             </div>
           )}
 
@@ -677,15 +662,15 @@ export default function AdminDashboard() {
                               s.status === "booked"
                                 ? "bg-rose-100 text-rose-700"
                                 : s.status === "pending"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-amber-100 text-amber-800"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-amber-100 text-amber-800"
                             }`}
                           >
                             {s.status === "pending"
                               ? "PENDING"
                               : s.status === "booked"
-                                ? "BOOKED"
-                                : "EVENT"}
+                              ? "BOOKED"
+                              : "EVENT"}
                           </span>
                         </div>
                       ))}
@@ -724,14 +709,20 @@ export default function AdminDashboard() {
                         >
                           <div className="flex items-center gap-2.5">
                             <div
-                              className={`w-2 h-2 rounded-full shrink-0 ${court.active ? "bg-emerald-500" : "bg-rose-500"}`}
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                court.active ? "bg-emerald-500" : "bg-rose-500"
+                              }`}
                             />
                             <span className="text-xs font-bold text-slate-700">
                               {court.label}
                             </span>
                           </div>
                           <span
-                            className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${court.active ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-700"}`}
+                            className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                              court.active
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-700"
+                            }`}
                           >
                             {court.active ? "Buka" : "Tutup"}
                           </span>
@@ -833,7 +824,11 @@ export default function AdminDashboard() {
                       {filteredSchedules.map((s) => (
                         <tr
                           key={s.id}
-                          className={`transition ${s.status === "pending" ? "bg-amber-50/40" : "hover:bg-slate-50/60"}`}
+                          className={`transition ${
+                            s.status === "pending"
+                              ? "bg-amber-50/40"
+                              : "hover:bg-slate-50/60"
+                          }`}
                         >
                           <td className="py-4 px-6 font-bold text-slate-800">
                             {s.date}
@@ -851,7 +846,7 @@ export default function AdminDashboard() {
 
                           <td className="py-4 px-4">
                             {s.status === "pending" ? (
-                              <span className="bg-amber-100 text-amber-800 border border-amber-300 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider animate-pulse">
+                              <span className="bg-amber-100 text-amber-800 border border-amber-300 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider">
                                 Menunggu WA
                               </span>
                             ) : s.status === "booked" ? (
@@ -1346,6 +1341,51 @@ export default function AdminDashboard() {
           )}
         </main>
       </div>
+
+      {/* MODAL POP-UP NOTIFIKASI BOOKING PENDING (DESAIN DUA TOMBOL + ELEGAN) */}
+      {showPendingModal && pendingCount > 0 && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-all duration-300">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl border border-slate-100 text-center space-y-5 my-auto">
+            {/* ICON BADGE */}
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200/60 text-amber-500 flex items-center justify-center mx-auto shadow-xs">
+              <Bell className="w-7 h-7" />
+            </div>
+
+            {/* TEXT CONTENT */}
+            <div>
+              <h3 className="font-extrabold text-slate-900 text-base tracking-tight">
+                Pemesanan Baru
+              </h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                Ada{" "}
+                <span className="font-extrabold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                  {pendingCount} pemesanan
+                </span>{" "}
+                yang perlu dikonfirmasi.
+              </p>
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                onClick={() => setShowPendingModal(false)}
+                className="py-2.5 px-3 rounded-xl border border-slate-200/80 text-slate-600 font-bold text-xs hover:bg-slate-50 active:scale-95 transition cursor-pointer"
+              >
+                Nanti Saja
+              </button>
+              <button
+                onClick={() => {
+                  setShowPendingModal(false);
+                  setActiveTab("schedules");
+                }}
+                className="py-2.5 px-3 rounded-xl bg-[#0a8754] hover:bg-[#086c43] active:scale-95 text-white font-bold text-xs transition cursor-pointer shadow-sm shadow-emerald-900/10"
+              >
+                Lihat Jadwal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL KONFIRMASI HAPUS JADWAL (CUSTOM POP-UP) */}
       {deleteModal.show && (
