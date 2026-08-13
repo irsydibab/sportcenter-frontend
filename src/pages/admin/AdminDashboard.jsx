@@ -94,6 +94,13 @@ export default function AdminDashboard() {
       return;
     }
     loadDashboardData();
+
+    // Auto Polling Data Setiap 10 Detik
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadDashboardData = () => {
@@ -471,29 +478,31 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* BANNER NOTIFIKASI JIKA ADA PESANAN PENDING */}
+          {/* BANNER NOTIFIKASI PENDING (RESPONSIF MOBILE) */}
           {pendingCount > 0 && (
-            <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-extrabold text-sm shadow-xs">
-                  {pendingCount}
+            <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 p-4 bg-amber-50 border border-amber-200/80 rounded-2xl shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-xs">
+                    {pendingCount}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-extrabold text-amber-900 leading-snug">
+                      Menunggu Persetujuan Pembayaran
+                    </h4>
+                    <p className="text-[11px] text-amber-700/90 font-medium mt-0.5 leading-tight">
+                      Ada pemesanan baru dari pengunjung via WhatsApp yang
+                      memerlukan konfirmasi Anda.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-extrabold text-amber-900">
-                    Menunggu Persetujuan Pembayaran
-                  </h4>
-                  <p className="text-[11px] text-amber-700 mt-0.5">
-                    Ada pemesanan baru dari pengunjung via WhatsApp yang
-                    memerlukan konfirmasi Anda.
-                  </p>
-                </div>
+                <button
+                  onClick={() => setActiveTab("schedules")}
+                  className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0 text-center shadow-xs"
+                >
+                  Tinjau Jadwal
+                </button>
               </div>
-              <button
-                onClick={() => setActiveTab("schedules")}
-                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0"
-              >
-                Tinjau Jadwal
-              </button>
             </div>
           )}
 
