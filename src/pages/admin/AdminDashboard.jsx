@@ -106,53 +106,57 @@ export default function AdminDashboard() {
   }, []);
 
   const loadDashboardData = (isInitialLoad = false) => {
-    api
-      .get("/settings")
-      .then((res) => {
-        const data = res.data?.data || res.data || {};
-        setSettings((prev) => ({
-          ...prev,
-          admin_whatsapp: data.admin_whatsapp || prev.admin_whatsapp,
-          time_night_start: data.time_night_start || prev.time_night_start,
-          courts: {
-            futsal: {
-              active: Boolean(
-                data.court_active_futsal ?? prev.courts.futsal.active,
-              ),
-              price_day: data.futsal_price_day || prev.courts.futsal.price_day,
-              price_night:
-                data.futsal_price_night || prev.courts.futsal.price_night,
-            },
-            volleyball: {
-              active: Boolean(
-                data.court_active_volleyball ?? prev.courts.volleyball.active,
-              ),
-              price_day:
-                data.volleyball_price_day || prev.courts.volleyball.price_day,
-              price_night:
-                data.volleyball_price_night ||
-                prev.courts.volleyball.price_night,
-            },
-            badminton: {
-              active: Boolean(
-                data.court_active_badminton ?? prev.courts.badminton.active,
-              ),
-              price_day:
-                data.badminton_price_day || prev.courts.badminton.price_day,
-              price_night:
-                data.badminton_price_night || prev.courts.badminton.price_night,
-            },
-          },
-        }));
-        if (data.admin_whatsapp) {
-          setAdminProfile((prev) => ({
+    // PERBAIKAN: Hanya muat settings pada render pertama agar tidak menimpa form yang sedang diketik admin
+    if (isInitialLoad) {
+      api
+        .get("/settings")
+        .then((res) => {
+          const data = res.data?.data || res.data || {};
+          setSettings((prev) => ({
             ...prev,
-            whatsapp: data.admin_whatsapp,
+            admin_whatsapp: data.admin_whatsapp || prev.admin_whatsapp,
+            time_night_start: data.time_night_start || prev.time_night_start,
+            courts: {
+              futsal: {
+                active: Boolean(
+                  data.court_active_futsal ?? prev.courts.futsal.active,
+                ),
+                price_day: data.futsal_price_day || prev.courts.futsal.price_day,
+                price_night:
+                  data.futsal_price_night || prev.courts.futsal.price_night,
+              },
+              volleyball: {
+                active: Boolean(
+                  data.court_active_volleyball ?? prev.courts.volleyball.active,
+                ),
+                price_day:
+                  data.volleyball_price_day || prev.courts.volleyball.price_day,
+                price_night:
+                  data.volleyball_price_night ||
+                  prev.courts.volleyball.price_night,
+              },
+              badminton: {
+                active: Boolean(
+                  data.court_active_badminton ?? prev.courts.badminton.active,
+                ),
+                price_day:
+                  data.badminton_price_day || prev.courts.badminton.price_day,
+                price_night:
+                  data.badminton_price_night || prev.courts.badminton.price_night,
+              },
+            },
           }));
-        }
-      })
-      .catch((err) => console.error("Gagal memuat settings:", err));
+          if (data.admin_whatsapp) {
+            setAdminProfile((prev) => ({
+              ...prev,
+              whatsapp: data.admin_whatsapp,
+            }));
+          }
+        })
+        .catch((err) => console.error("Gagal memuat settings:", err));
+    }
 
+    // Schedules tetap dipanggil setiap 10 detik untuk notifikasi pesanan baru
     api
       .get("/admin/schedules")
       .then((res) => {
